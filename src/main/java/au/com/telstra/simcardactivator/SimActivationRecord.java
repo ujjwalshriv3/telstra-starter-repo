@@ -1,6 +1,6 @@
 package au.com.telstra.simcardactivator;
 
-import jakarta.persistence.*;
+import javax.persistence.*;  // Correct import for Spring Boot 2.7.3
 import java.time.LocalDateTime;
 
 @Entity
@@ -12,11 +12,10 @@ public class SimActivationRecord {
 
     private String iccid;
     private String customerEmail;
-    private boolean success;
+    private boolean active;
     private LocalDateTime timestamp;
 
-    // Getters and Setters
-
+    // Getters and setters
     public Long getId() {
         return id;
     }
@@ -37,12 +36,12 @@ public class SimActivationRecord {
         this.customerEmail = customerEmail;
     }
 
-    public boolean isSuccess() {
-        return success;
+    public boolean isActive() {
+        return active;
     }
 
-    public void setSuccess(boolean success) {
-        this.success = success;
+    public void setActive(boolean active) {
+        this.active = active;
     }
 
     public LocalDateTime getTimestamp() {
@@ -53,4 +52,3 @@ public class SimActivationRecord {
         this.timestamp = timestamp;
     }
 }
-

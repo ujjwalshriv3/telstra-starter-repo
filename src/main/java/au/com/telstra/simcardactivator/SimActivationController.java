@@ -1,22 +1,22 @@
 package au.com.telstra.simcardactivator;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 public class SimActivationController {
 
-    @Autowired
-    private RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
+    private final SimActivationRecordRepository repository;
 
-    @Autowired
-    private SimActivationRecordRepository repository;
+    public SimActivationController(SimActivationRecordRepository repository) {
+        this.restTemplate = new RestTemplate();
+        this.repository = repository;
+    }
 
     @GetMapping("/")
     public ResponseEntity<String> home() {
@@ -25,8 +25,6 @@ public class SimActivationController {
 
     @PostMapping("/activate")
     public ResponseEntity<String> activateSim(@RequestBody SimActivationRequest request) {
-
-        // 1. Prepare request to actuator
         Map<String, String> actuatorRequest = new HashMap<>();
         actuatorRequest.put("iccid", request.getIccid());
 
@@ -34,30 +32,41 @@ public class SimActivationController {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(actuatorRequest, headers);
 
+        boolean success;
+
         try {
-            // 2. Call actuator service
             ResponseEntity<ActuatorResponse> response = restTemplate.postForEntity(
                     "http://localhost:8444/actuate", entity, ActuatorResponse.class
             );
-
-            boolean success = response.getBody().isSuccess();
-            System.out.println("Activation success: " + success);
-
-            // 3. Save record to database
-            SimActivationRecord record = new SimActivationRecord();
-            record.setIccid(request.getIccid());
-            record.setCustomerEmail(request.getCustomerEmail());
-            record.setSuccess(success);
-            record.setTimestamp(LocalDateTime.now());
-
-            repository.save(record);  // 📝 Save to DB
-
-            return ResponseEntity.ok("Activation success: " + success);
-
+            success = Boolean.TRUE.equals(response.getBody().isSuccess());
         } catch (Exception e) {
-            System.out.println("Error during activation: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Activation failed");
+                    .body("Activation failed: " + e.getMessage());
         }
+
+        // Save activation result to DB
+        SimActivationRecord record = new SimActivationRecord();
+        record.setIccid(request.getIccid());
+        record.setCustomerEmail(request.getCustomerEmail());
+        record.setActive(success);
+        record.setTimestamp(LocalDateTime.now());
+
+        SimActivationRecord saved = repository.save(record);
+
+        return ResponseEntity.ok("Activation success: " + success + " | ID: " + saved.getId());
+    }
+
+    @GetMapping("/activation")
+    public ResponseEntity<?> getActivation(@RequestParam Long simCardId) {
+        return repository.findById(simCardId)
+                .map(record -> {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("iccid", record.getIccid());
+                    response.put("customerEmail", record.getCustomerEmail());
+                    response.put("active", record.isActive());
+                    return ResponseEntity.ok(response);
+                })
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Collections.singletonMap("error", "SIM card record not found")));
     }
 }

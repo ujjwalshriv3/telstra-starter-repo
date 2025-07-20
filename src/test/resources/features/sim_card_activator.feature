@@ -1,14 +1,11 @@
+Feature: SIM Card Activation
 
-spring.datasource.url=jdbc:h2:mem:testdb
-spring.datasource.driver-class-name=org.h2.Driver
-spring.datasource.username=sa
-spring.datasource.password=
+  Scenario: Successful SIM card activation
+    Given I submit a SIM activation request with ICCID "1255789453849037777" and email "success@example.com"
+    When I query the activation status for SIM card ID 1
+    Then the activation should be marked as "true"
 
-
-spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-
-
-spring.h2.console.enabled=true
-spring.h2.console.path=/h2-console
+  Scenario: Failed SIM card activation
+    Given I submit a SIM activation request with ICCID "8944500102198304826" and email "fail@example.com"
+    When I query the activation status for SIM card ID 2
+    Then the activation should be marked as "false"
